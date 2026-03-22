@@ -18,7 +18,7 @@ if (args.Length > 0 && args[0] == "generate")
     if (!File.Exists(configPath))
     {
         Console.Error.WriteLine($"Config not found: {configPath}");
-        Console.Error.WriteLine("Usage: DataTableExtractor generate --config <path>");
+        Console.Error.WriteLine("Usage: DataTableForge generate --config <path>");
         return 1;
     }
 
@@ -49,7 +49,7 @@ else
 
     if (!File.Exists(configPath))
     {
-        Console.Error.WriteLine("Usage: DataTableExtractor <pak-path> <usmap-path> <output-dir> <repak-exe>");
+        Console.Error.WriteLine("Usage: DataTableForge <pak-path> <usmap-path> <output-dir> <repak-exe>");
         Console.Error.WriteLine("   or: place an extractor.config.json next to the .exe");
         Console.Error.WriteLine();
         Console.Error.WriteLine("extractor.config.json format:");
