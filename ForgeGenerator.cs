@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime;
 using System.Text;
+using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UAssetAPI;
@@ -118,8 +119,11 @@ public static class ForgeGenerator
         }
 
         var stagingDir = Path.Combine(config.OutputDir, config.UserId);
-        if (Directory.Exists(stagingDir))
-            Directory.Delete(stagingDir, true);
+        // No recursive delete — just overwrite files in place.
+        // Directory.CreateDirectory is a no-op on existing dirs,
+        // asset.Write() and File.Copy(..., overwrite: true) replace files.
+        // Aggressive Directory.Delete causes NTFS corruption (orphaned MFT entries)
+        // when handles are held by antivirus, indexer, or orphaned child processes.
 
         var autoModBase = Path.Combine(config.BuildDir, "AutoMod_P");
 
@@ -247,8 +251,9 @@ public static class ForgeGenerator
 
         Console.WriteLine($"  Created: {pakPath}");
 
-        // Cleanup staging
-        try { Directory.Delete(stagingDir, true); } catch { }
+        // No post-pack cleanup — leave staging dir intact.
+        // main.js handles cleanup before next run. Aggressive Directory.Delete
+        // after repak releases handles causes NTFS corruption.
 
         GCSettings.LatencyMode = prevLatency;
         totalSw.Stop();
