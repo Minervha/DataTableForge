@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $StudioBin = "F:\Minervha\Studio\Minervha Studio\resources\forge\DataTableExtractor_bin"
 
 Write-Host "Building DataTableForge..." -ForegroundColor Cyan
-dotnet publish -c Release -r win-x64 --self-contained false -o ./publish/
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish/
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed!" -ForegroundColor Red
