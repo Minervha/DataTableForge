@@ -118,12 +118,10 @@ public static class ForgeGenerator
             Console.Error.WriteLine($"  WARNING: usmap not found: {config.UsmapPath}");
         }
 
-        var stagingDir = Path.Combine(config.OutputDir, config.UserId);
-        // No recursive delete — just overwrite files in place.
-        // Directory.CreateDirectory is a no-op on existing dirs,
-        // asset.Write() and File.Copy(..., overwrite: true) replace files.
-        // Aggressive Directory.Delete causes NTFS corruption (orphaned MFT entries)
-        // when handles are held by antivirus, indexer, or orphaned child processes.
+        // Use a fresh GUID-based staging dir per run to avoid collisions with
+        // locked residual directories from prior executions (e.g. Output/anonymous/).
+        // This sidesteps NTFS handle-lock issues entirely — we never touch old dirs.
+        var stagingDir = Path.Combine(config.OutputDir, $"staging_{Guid.NewGuid():N}");
 
         var autoModBase = Path.Combine(config.BuildDir, "AutoMod_P");
 
@@ -251,9 +249,15 @@ public static class ForgeGenerator
 
         Console.WriteLine($"  Created: {pakPath}");
 
-        // No post-pack cleanup — leave staging dir intact.
-        // main.js handles cleanup before next run. Aggressive Directory.Delete
-        // after repak releases handles causes NTFS corruption.
+        // Try to clean up our fresh staging dir. Safe because we just created it
+        // and repak has finished — no lingering handles expected.
+        // If it fails (antivirus hold), it's harmless: the GUID name won't collide
+        // with future runs, and main.js can sweep it later.
+        try { Directory.Delete(stagingDir, true); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  WARN: could not remove staging dir: {ex.Message}");
+        }
 
         GCSettings.LatencyMode = prevLatency;
         totalSw.Stop();
