@@ -225,7 +225,11 @@ public static class ForgeGenerator
         // 6. Pack with repak
         EmitProgress(92, "Packing .pak...");
         Console.WriteLine("[5/5] Packing .pak...");
-        var pakPath = Path.Combine(config.OutputDir, $"{config.PakName}_P.pak");
+        var pakDir = string.IsNullOrEmpty(config.UserId)
+            ? config.OutputDir
+            : Path.Combine(config.OutputDir, config.UserId);
+        Directory.CreateDirectory(pakDir);
+        var pakPath = Path.Combine(pakDir, $"{config.PakName}_P.pak");
 
         var psi = new ProcessStartInfo(config.RepakExe,
             $"pack \"{stagingDir}\" \"{pakPath}\"")

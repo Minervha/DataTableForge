@@ -25,6 +25,23 @@ if (args.Length > 0 && args[0] == "generate")
     Console.WriteLine($"[DataTableForge] Config: {configPath}");
     var forgeConfig = JsonConvert.DeserializeObject<ForgeConfig>(File.ReadAllText(configPath))
         ?? throw new Exception("Failed to parse forge config");
+
+    // CLI overrides: --key value takes precedence over config file
+    string? CliArg(string name)
+    {
+        var idx = Array.IndexOf(args, $"--{name}");
+        return idx >= 0 && idx + 1 < args.Length ? args[idx + 1] : null;
+    }
+
+    if (CliArg("buildDir")  is string bd) forgeConfig.BuildDir  = bd;
+    if (CliArg("modsDir")   is string md) forgeConfig.ModsDir   = md;
+    if (CliArg("outputDir") is string od) forgeConfig.OutputDir  = od;
+    if (CliArg("usmapPath") is string up) forgeConfig.UsmapPath  = up;
+    if (CliArg("repakExe")  is string re) forgeConfig.RepakExe   = re;
+    if (CliArg("pakName")   is string pn) forgeConfig.PakName    = pn;
+    if (CliArg("userId")    is string ui) forgeConfig.UserId     = ui;
+    if (CliArg("mods")      is string ms) forgeConfig.Mods       = ms.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
     return ForgeGenerator.Generate(forgeConfig);
 }
 
