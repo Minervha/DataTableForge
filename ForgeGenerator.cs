@@ -5,6 +5,7 @@ using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UAssetAPI;
+using UAssetAPI.ExportTypes;
 using UAssetAPI.UnrealTypes;
 using UAssetAPI.Unversioned;
 
@@ -69,6 +70,28 @@ public static class ForgeGenerator
             }
         }
         Console.WriteLine($"  {mods.Count} mod entries parsed.");
+
+        // Deduplicate Add mods by ClothingId — last-wins (mirrors file-level conflict resolution).
+        // When the same outfit exists in both a shop mod and a wlmm import, both get staged
+        // with identical ClothingIds. Duplicate row names in a UE DataTable cause undefined
+        // behavior (some entries silently disappear in-game).
+        {
+            var addCountBefore = mods.Count(m => m.Variant == ModVariant.Add);
+            var seen = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = mods.Count - 1; i >= 0; i--)
+            {
+                if (mods[i].Variant != ModVariant.Add) continue;
+                if (!seen.TryAdd(mods[i].ClothingId, i))
+                {
+                    Console.WriteLine($"  DEDUP: dropping duplicate ClothingId '{mods[i].ClothingId}' from {mods[i].ModName}");
+                    mods.RemoveAt(i);
+                }
+            }
+            var dedupCount = addCountBefore - mods.Count(m => m.Variant == ModVariant.Add);
+            if (dedupCount > 0)
+                Console.WriteLine($"  {dedupCount} duplicate ClothingId(s) removed.");
+        }
+
         EmitProgress(15, $"{mods.Count} mods parsed");
 
         // 2. Read character lists
@@ -86,9 +109,21 @@ public static class ForgeGenerator
             config.BuildDir, config.UsmapPath, mods.ToArray(), characters);
         EndStep();
 
+        // Mod breakdown for diagnostics
+        var addModCount = mods.Count(m => m.Variant == ModVariant.Add);
+        var portModCount = mods.Count(m => m.Variant == ModVariant.Port);
+        var custModCount = mods.Count(m => m.Variant == ModVariant.CharacterCustomization);
+        Console.WriteLine($"  Mods breakdown: {addModCount} Add, {portModCount} Port, {custModCount} CharCust");
+
         if (directAssets != null)
         {
             Console.WriteLine($"  v2: {directAssets.Count} DataTables injected (direct).");
+            foreach (var (name, asset) in directAssets)
+            {
+                var dtExport = asset.Exports[0] as DataTableExport;
+                if (dtExport != null)
+                    Console.WriteLine($"    {name}: {dtExport.Table.Data.Count} rows, NameMap: {asset.GetNameMapIndexList().Count} entries");
+            }
         }
         else
         {

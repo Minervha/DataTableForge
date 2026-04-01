@@ -214,6 +214,9 @@ public static class AssetInjector
             // Use existing handle as clone template (if any)
             StructPropertyData? handleTemplate = handles.OfType<StructPropertyData>().FirstOrDefault();
 
+            // Continue the vanilla sequential numbering for struct element names
+            int nextIndex = handles.Count;
+
             foreach (var mod in charMods)
             {
                 asset.AddNameReference(new FString(mod.ClothingId));
@@ -221,13 +224,14 @@ public static class AssetInjector
                 if (handleTemplate != null)
                 {
                     var handle = DeepClone(handleTemplate);
-                    handle.Name = FName.FromString(asset, mod.ClothingId);
+                    handle.Name = FName.FromString(asset, nextIndex.ToString());
 
                     var rowNameProp = Find<NamePropertyData>(handle, "RowName");
                     if (rowNameProp != null)
                         rowNameProp.Value = FName.FromString(asset, mod.ClothingId);
 
                     handles.Add(handle);
+                    nextIndex++;
                 }
             }
 

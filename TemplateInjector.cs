@@ -75,14 +75,29 @@ public static class TemplateInjector
                     continue;
                 }
 
+                // Determine next sequential index: find the last numeric "Name" before
+                // the placeholder to continue the vanilla numbering scheme.
+                int lastIndex = 0;
+                int placeholderIdx = json.IndexOf(placeholder, StringComparison.Ordinal);
+                if (placeholderIdx > 0)
+                {
+                    var searchStart = Math.Max(0, placeholderIdx - 5000);
+                    var searchRegion = json.Substring(searchStart, placeholderIdx - searchStart);
+                    var matches = Regex.Matches(searchRegion, @"""Name"":\s*""(\d+)""");
+                    if (matches.Count > 0)
+                        lastIndex = int.Parse(matches[^1].Groups[1].Value);
+                }
+
+                int outfitNr = lastIndex + 1;
                 var handles = new List<string>();
                 foreach (var mod in charMods)
                 {
                     if (handleTemplate == null) continue;
                     var handle = handleTemplate
                         .Replace("[CLOTHING_ID]", mod.ClothingId)
-                        .Replace("[OUTFIT_NR]", mod.ClothingId);
+                        .Replace("[OUTFIT_NR]", outfitNr.ToString());
                     handles.Add(handle);
+                    outfitNr++;
                 }
 
                 json = SpliceReplace(json, $",{placeholder}",
