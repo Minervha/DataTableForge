@@ -7,15 +7,7 @@
     <RootNamespace>DataTableForge</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>link</TrimMode>
   </PropertyGroup>
-
-  <ItemGroup>
-    <TrimmerRootAssembly Include="DataTableForge" />
-    <TrimmerRootAssembly Include="UAssetAPI" />
-    <TrimmerRootAssembly Include="Newtonsoft.Json" />
-  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="UAssetAPI">
