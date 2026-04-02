@@ -65,6 +65,16 @@ public static class AssetInjector
             result["DT_GameCharacterCustomization"] = asset;
         }
 
+        // ── DT_Tattoo ──
+        var tattooPath = Path.Combine(autoModBase, "WildLifeC/Content/DataTables/DT_Tattoo.uasset");
+        if (File.Exists(tattooPath))
+        {
+            var tattooMods = mods.Where(m => m.Variant == ModVariant.Tattoo).ToArray();
+            var asset = new UAsset(tattooPath, EngineVersion.VER_UE5_4, mappings);
+            InjectTattoo(asset, tattooMods);
+            result["DT_Tattoo"] = asset;
+        }
+
         return result;
     }
 
@@ -317,6 +327,89 @@ public static class AssetInjector
 
                 array.Value = items.ToArray();
             }
+        }
+    }
+
+    // ── DT_Tattoo ──────────────────────────────────────────────────────────
+
+    static void InjectTattoo(UAsset asset, ModData[] tattooMods)
+    {
+        var allEntries = tattooMods.SelectMany(m => m.TattooEntries).ToList();
+        if (allEntries.Count == 0) return;
+
+        var dtExport = asset.Exports[0] as DataTableExport;
+        if (dtExport == null) return;
+
+        var rows = dtExport.Table.Data;
+        if (rows.Count == 0) return;
+
+        var templateRow = rows[0];
+
+        // Add NameMap entries from all tattoo mods
+        foreach (var mod in tattooMods)
+            foreach (var nm in mod.NameMapEntries)
+                asset.AddNameReference(new FString(nm));
+
+        foreach (var tattoo in allEntries)
+        {
+            asset.AddNameReference(new FString(tattoo.TattooId));
+
+            var row = DeepClone(templateRow);
+            row.Name = FName.FromString(asset, tattoo.TattooId);
+
+            // DisplayName
+            var displayName = Find<TextPropertyData>(row, "DisplayName");
+            if (displayName != null)
+                displayName.CultureInvariantString = new FString(tattoo.DisplayName);
+
+            // Texture
+            SetSoftObject(asset, Find<SoftObjectPropertyData>(row, "Texture"),
+                tattoo.TexturePath, tattoo.TextureName);
+
+            // PreviewIcon
+            SetSoftObject(asset, Find<SoftObjectPropertyData>(row, "PreviewIcon"),
+                tattoo.IconPath, tattoo.IconName);
+
+            // DefaultColor (LinearColor struct)
+            var colorStruct = Find<StructPropertyData>(row, "DefaultColor");
+            if (colorStruct != null)
+            {
+                var lc = colorStruct.Value.OfType<LinearColorPropertyData>().FirstOrDefault();
+                if (lc != null)
+                {
+                    lc.Value = new FLinearColor(tattoo.ColorR, tattoo.ColorG, tattoo.ColorB, tattoo.ColorA);
+                    lc.IsZero = false;
+                }
+            }
+
+            // coveredSlots
+            SetInt(Find<IntPropertyData>(row, "coveredSlots"), tattoo.CoveredSlots);
+
+            // Cost
+            SetInt(Find<IntPropertyData>(row, "Cost"), tattoo.Cost);
+
+            // UVSet (EnumPropertyData)
+            var uvSet = Find<EnumPropertyData>(row, "UVSet");
+            if (uvSet != null)
+            {
+                uvSet.Value = FName.FromString(asset, tattoo.UVSet);
+                uvSet.IsZero = false;
+            }
+
+            // TraderType (EnumPropertyData) — "None" means unset/default in UE.
+            // v1 uses JSON null, v2 uses FName "None" — both produce identical binary
+            // because UAssetAPI treats FName("None") as the default/unset enum value.
+            var trader = Find<EnumPropertyData>(row, "TraderType");
+            if (trader != null)
+            {
+                if (tattoo.TraderType == "None" || string.IsNullOrEmpty(tattoo.TraderType))
+                    trader.Value = FName.FromString(asset, "None");
+                else
+                    trader.Value = FName.FromString(asset, tattoo.TraderType);
+                trader.IsZero = false;
+            }
+
+            rows.Add(row);
         }
     }
 

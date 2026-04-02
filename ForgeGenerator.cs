@@ -21,6 +21,7 @@ public static class ForgeGenerator
         ["DT_GameCharacterOutfits"] = "WildLifeC/Content/DataTables/NPC",
         ["DT_GameCharacterCustomization"] = "WildLifeC/Content/DataTables/NPC",
         ["DT_SandboxProps"] = "WildLifeC/Content/DataTables/Sandbox",
+        ["DT_Tattoo"] = "WildLifeC/Content/DataTables",
     };
 
     /// <summary>Emit a structured progress line for the Electron UI to parse.</summary>
@@ -92,6 +93,30 @@ public static class ForgeGenerator
                 Console.WriteLine($"  {dedupCount} duplicate ClothingId(s) removed.");
         }
 
+        // Deduplicate Tattoo mods by TattooId — last-wins (mirrors Add dedup / file-level conflict resolution).
+        {
+            var tattooCountBefore = mods.SelectMany(m => m.TattooEntries).Count();
+            var seenTattoos = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            var tattooMods = mods.Where(m => m.Variant == ModVariant.Tattoo).ToList();
+            // Reverse pass: first occurrence in reverse = last-wins
+            for (int mi = tattooMods.Count - 1; mi >= 0; mi--)
+            {
+                var mod = tattooMods[mi];
+                for (int ti = mod.TattooEntries.Count - 1; ti >= 0; ti--)
+                {
+                    var t = mod.TattooEntries[ti];
+                    if (!seenTattoos.TryAdd(t.TattooId, true))
+                    {
+                        Console.WriteLine($"  DEDUP: dropping duplicate TattooId '{t.TattooId}' from {mod.ModName}");
+                        mod.TattooEntries.RemoveAt(ti);
+                    }
+                }
+            }
+            var tattooDedup = tattooCountBefore - mods.SelectMany(m => m.TattooEntries).Count();
+            if (tattooDedup > 0)
+                Console.WriteLine($"  {tattooDedup} duplicate TattooId(s) removed.");
+        }
+
         EmitProgress(15, $"{mods.Count} mods parsed");
 
         // 2. Read character lists
@@ -113,7 +138,8 @@ public static class ForgeGenerator
         var addModCount = mods.Count(m => m.Variant == ModVariant.Add);
         var portModCount = mods.Count(m => m.Variant == ModVariant.Port);
         var custModCount = mods.Count(m => m.Variant == ModVariant.CharacterCustomization);
-        Console.WriteLine($"  Mods breakdown: {addModCount} Add, {portModCount} Port, {custModCount} CharCust");
+        var tattooModCount = mods.Count(m => m.Variant == ModVariant.Tattoo);
+        Console.WriteLine($"  Mods breakdown: {addModCount} Add, {portModCount} Port, {custModCount} CharCust, {tattooModCount} Tattoo");
 
         if (directAssets != null)
         {

@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-public enum ModVariant { Add, Port, CharacterCustomization }
+public enum ModVariant { Add, Port, CharacterCustomization, Tattoo }
 
 public class SlotData
 {
@@ -21,6 +21,18 @@ public class CustEntry
     public string PhysicsPath = "None", PhysicsName = "None"; // Hair only
 }
 
+public class TattooData
+{
+    public string TattooId = "", DisplayName = "";
+    public string TexturePath = "None", TextureName = "None";
+    public string IconPath = "None", IconName = "None";
+    public float ColorR = 0f, ColorG = 0f, ColorB = 0f, ColorA = 1.0f;
+    public int CoveredSlots;
+    public int Cost = 100;
+    public string UVSet = "Set1";
+    public string TraderType = "None";
+}
+
 public class ModData
 {
     public string ModName = "", Author = "", Character = "";
@@ -29,6 +41,7 @@ public class ModData
     public string ClothingId = "", ClothingName = "";
     public Dictionary<string, SlotData> Slots = new(); // HEAD, CHEST, HANDS, LEGS, FEET
     public List<CustEntry> CustEntries = new();
+    public List<TattooData> TattooEntries = new();
 }
 
 public static class ModParser
@@ -55,6 +68,7 @@ public static class ModParser
             ModVariant.Add => ParseAdd(content),
             ModVariant.Port => ParsePort(content),
             ModVariant.CharacterCustomization => ParseCharCust(content),
+            ModVariant.Tattoo => ParseTattoo(content),
             _ => throw new Exception($"Unknown variant in {txtPath}")
         };
     }
@@ -68,6 +82,7 @@ public static class ModParser
         {
             "Character Customization" => ModVariant.CharacterCustomization,
             "Port" => ModVariant.Port,
+            "Tattoo" => ModVariant.Tattoo,
             _ => ModVariant.Add
         };
     }
@@ -208,6 +223,70 @@ public static class ModParser
             }
         }
 
+        return mod;
+    }
+
+    // Tattoos are character-agnostic (global DT_Tattoo, not per-character).
+    // mod.Character is intentionally left empty.
+    static ModData ParseTattoo(string content)
+    {
+        var mod = new ModData
+        {
+            Variant = ModVariant.Tattoo,
+            ModName = Get(content, "ModName"),
+            Author = Get(content, "Author"),
+        };
+
+        var nameMapRaw = Get(content, "NameMap");
+        mod.NameMapEntries = string.IsNullOrEmpty(nameMapRaw)
+            ? []
+            : nameMapRaw.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                         .Select(s => s.Trim()).ToArray();
+
+        var tattoo = new TattooData
+        {
+            TattooId = Get(content, "[TATTOO_ID]"),
+            DisplayName = Get(content, "[TATTOO_DISPLAY_NAME]"),
+            TexturePath = Get(content, "[TATTOO_TEXTURE_PATH]"),
+            TextureName = Get(content, "[TATTOO_TEXTURE_NAME]"),
+            IconPath = Get(content, "[TATTOO_ICON_PATH]"),
+            IconName = Get(content, "[TATTOO_ICON_NAME]"),
+            UVSet = Get(content, "[TATTOO_UV_SET]"),
+            TraderType = Get(content, "[TATTOO_TRADER_TYPE]"),
+        };
+
+        if (string.IsNullOrEmpty(tattoo.TexturePath)) tattoo.TexturePath = "None";
+        if (string.IsNullOrEmpty(tattoo.TextureName)) tattoo.TextureName = "None";
+        if (string.IsNullOrEmpty(tattoo.IconPath)) tattoo.IconPath = tattoo.TexturePath;
+        if (string.IsNullOrEmpty(tattoo.IconName)) tattoo.IconName = tattoo.TextureName;
+        if (string.IsNullOrEmpty(tattoo.UVSet)) tattoo.UVSet = "Set1";
+        if (string.IsNullOrEmpty(tattoo.TraderType)) tattoo.TraderType = "None";
+
+        if (float.TryParse(Get(content, "[TATTOO_COLOR_R]"),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var r)) tattoo.ColorR = r;
+        if (float.TryParse(Get(content, "[TATTOO_COLOR_G]"),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var g)) tattoo.ColorG = g;
+        if (float.TryParse(Get(content, "[TATTOO_COLOR_B]"),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var b)) tattoo.ColorB = b;
+        if (float.TryParse(Get(content, "[TATTOO_COLOR_A]"),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var a)) tattoo.ColorA = a;
+
+        if (int.TryParse(Get(content, "[TATTOO_COVERED_SLOTS]"), out var slots))
+            tattoo.CoveredSlots = slots;
+        if (int.TryParse(Get(content, "[TATTOO_COST]"), out var cost))
+            tattoo.Cost = cost;
+
+        if (string.IsNullOrWhiteSpace(tattoo.TattooId))
+        {
+            Console.Error.WriteLine($"  WARN: skipping tattoo with empty TattooId in {mod.ModName}");
+            return mod;
+        }
+
+        mod.TattooEntries.Add(tattoo);
         return mod;
     }
 }

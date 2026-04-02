@@ -111,10 +111,11 @@ var dataTables = new (string pakEntry, string friendlyName)[]
     ("WildLifeC/Content/DataTables/NPC/DT_GameCharacterOutfits",        "DT_GameCharacterOutfits"),
     ("WildLifeC/Content/DataTables/NPC/DT_GameCharacterCustomization",  "DT_GameCharacterCustomization"),
     ("WildLifeC/Content/DataTables/Sandbox/DT_SandboxProps",            "DT_SandboxProps"),
+    ("WildLifeC/Content/DataTables/DT_Tattoo",                         "DT_Tattoo"),
 };
 
 // Only these DTs need NameMap txt files (used by DataTableGenerator)
-var needsNameMap = new HashSet<string> { "DT_ClothesOutfit", "DT_GameCharacterOutfits", "DT_GameCharacterCustomization", "DT_SandboxProps" };
+var needsNameMap = new HashSet<string> { "DT_ClothesOutfit", "DT_GameCharacterOutfits", "DT_GameCharacterCustomization", "DT_SandboxProps", "DT_Tattoo" };
 
 // ── Step 1: Extract .uasset/.uexp from .pak via repak ────────────────────────
 var tempDir = Path.Combine(Path.GetTempPath(), "DTExtractor_" + Guid.NewGuid().ToString("N")[..8]);
@@ -283,7 +284,7 @@ static string InjectPlaceholders(string json, string dtName, List<string> charac
     if (dtName == "DT_GameCharacterOutfits")
         json = InjectOutfitAddPlaceholders(json, characters);
 
-    if (dtName == "DT_ClothesOutfit" || dtName == "DT_SandboxProps")
+    if (dtName == "DT_ClothesOutfit" || dtName == "DT_SandboxProps" || dtName == "DT_Tattoo")
         json = InjectEntryStartPlaceholder(json);
 
     if (dtName == "DT_GameCharacterCustomization")
@@ -667,6 +668,21 @@ static void GenerateEntryTemplates(Dictionary<string, JToken> parsedJsons, strin
         }
     }
 
+    // ── DT_Tattoo_Entry_Default.json ──
+    if (parsedJsons.TryGetValue("DT_Tattoo", out var tattooJson))
+    {
+        var data = tattooJson["Exports"]?[0]?["Table"]?["Data"] as JArray;
+        if (data != null && data.Count > 0)
+        {
+            var entry = data[0].DeepClone();
+            InjectTattooPlaceholders(entry);
+            File.WriteAllText(
+                Path.Combine(outputDir, "DT_Tattoo_Entry_Default.json"),
+                SerializeWithPlaceholders(entry), enc);
+            Console.WriteLine("  DT_Tattoo_Entry_Default.json");
+        }
+    }
+
     // ── DT_SandboxProps_Entry_Default.json ──
     if (parsedJsons.TryGetValue("DT_SandboxProps", out var propsJson))
     {
@@ -827,6 +843,65 @@ static void InjectSandboxPlaceholders(JToken entry)
     var adfl = FindProperty(values, "ADFL");
     if (adfl != null)
         adfl["Value"] = "__PLACEHOLDER__[ADFL]__";
+}
+
+static void InjectTattooPlaceholders(JToken entry)
+{
+    entry["Name"] = "[TATTOO_ID]";
+
+    var values = entry["Value"] as JArray;
+    if (values == null) return;
+
+    // DisplayName (TextPropertyData)
+    var displayName = FindProperty(values, "DisplayName");
+    if (displayName != null)
+        displayName["CultureInvariantString"] = "[TATTOO_DISPLAY_NAME]";
+
+    // Texture (SoftObjectPropertyData)
+    var texture = FindProperty(values, "Texture");
+    if (texture != null)
+        SetAssetPath(texture, "[TATTOO_TEXTURE_PATH]", "[TATTOO_TEXTURE_NAME]");
+
+    // PreviewIcon (SoftObjectPropertyData)
+    var icon = FindProperty(values, "PreviewIcon");
+    if (icon != null)
+        SetAssetPath(icon, "[TATTOO_ICON_PATH]", "[TATTOO_ICON_NAME]");
+
+    // DefaultColor (LinearColor struct)
+    var color = FindProperty(values, "DefaultColor");
+    if (color?["Value"] is JArray colorArr && colorArr.Count > 0)
+    {
+        var lc = colorArr[0]["Value"];
+        if (lc != null)
+        {
+            lc["R"] = "__PLACEHOLDER__[TATTOO_COLOR_R]__";
+            lc["G"] = "__PLACEHOLDER__[TATTOO_COLOR_G]__";
+            lc["B"] = "__PLACEHOLDER__[TATTOO_COLOR_B]__";
+            lc["A"] = "__PLACEHOLDER__[TATTOO_COLOR_A]__";
+        }
+    }
+
+    // coveredSlots (int)
+    SetValueAndForceNotZero(values, "coveredSlots", "[TATTOO_COVERED_SLOTS]");
+
+    // Cost (int)
+    SetValueAndForceNotZero(values, "Cost", "[TATTOO_COST]");
+
+    // UVSet (EnumPropertyData)
+    var uvSet = FindProperty(values, "UVSet");
+    if (uvSet != null)
+    {
+        uvSet["Value"] = "[TATTOO_UV_SET]";
+        uvSet["IsZero"] = false;
+    }
+
+    // TraderType (EnumPropertyData) — null means default
+    var trader = FindProperty(values, "TraderType");
+    if (trader != null)
+    {
+        trader["Value"] = "__PLACEHOLDER__[TATTOO_TRADER_TYPE]__";
+        trader["IsZero"] = false;
+    }
 }
 
 static void SetVectorPlaceholders(JArray values, string propName, string prefix)

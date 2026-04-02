@@ -198,6 +198,32 @@ public static class TemplateInjector
             result["DT_GameCharacterCustomization"] = json;
         }
 
+        // ── DT_Tattoo ──
+        var tattooTemplate = ReadTemplate(buildDir, "DT_Tattoo_Default.json");
+        if (tattooTemplate != null)
+        {
+            var entryTemplate = ReadTemplate(buildDir, "DT_Tattoo_Entry_Default.json");
+            var tattooMods = mods.Where(m => m.Variant == ModVariant.Tattoo).ToArray();
+
+            var entries = new List<string>();
+            var tattooNameMap = new List<string>();
+
+            foreach (var mod in tattooMods)
+            {
+                foreach (var tattoo in mod.TattooEntries)
+                {
+                    if (entryTemplate == null) continue;
+                    entries.Add(InstantiateTattooEntry(entryTemplate, tattoo));
+                }
+                tattooNameMap.AddRange(mod.NameMapEntries);
+            }
+
+            var json = tattooTemplate;
+            json = ReplaceEntryStart(json, entries);
+            json = ReplaceNameMapStart(json, tattooNameMap.Distinct().ToList());
+            result["DT_Tattoo"] = json;
+        }
+
         // ── DT_SandboxProps — no mod generates sandbox props yet.
         // Don't include in result → ForgeGenerator will use fast file-copy path.
 
@@ -250,6 +276,34 @@ public static class TemplateInjector
             text = text.Replace($"[{prefix}_SEX_FURMASK_PATH]", slot.SexFurMaskPath);
             text = text.Replace($"[{prefix}_SEX_FURMASK_NAME]", slot.SexFurMaskName);
         }
+
+        return text;
+    }
+
+    static string InstantiateTattooEntry(string template, TattooData tattoo)
+    {
+        var text = template;
+        text = text.Replace("[TATTOO_ID]", tattoo.TattooId);
+        text = text.Replace("[TATTOO_DISPLAY_NAME]", tattoo.DisplayName);
+        text = text.Replace("[TATTOO_TEXTURE_PATH]", tattoo.TexturePath);
+        text = text.Replace("[TATTOO_TEXTURE_NAME]", tattoo.TextureName);
+        text = text.Replace("[TATTOO_ICON_PATH]", tattoo.IconPath);
+        text = text.Replace("[TATTOO_ICON_NAME]", tattoo.IconName);
+
+        var ic = System.Globalization.CultureInfo.InvariantCulture;
+        text = text.Replace("[TATTOO_COLOR_R]", tattoo.ColorR.ToString("G", ic));
+        text = text.Replace("[TATTOO_COLOR_G]", tattoo.ColorG.ToString("G", ic));
+        text = text.Replace("[TATTOO_COLOR_B]", tattoo.ColorB.ToString("G", ic));
+        text = text.Replace("[TATTOO_COLOR_A]", tattoo.ColorA.ToString("G", ic));
+
+        text = text.Replace("[TATTOO_COVERED_SLOTS]", tattoo.CoveredSlots.ToString());
+        text = text.Replace("[TATTOO_COST]", tattoo.Cost.ToString());
+
+        text = text.Replace("[TATTOO_UV_SET]", tattoo.UVSet);
+
+        // TraderType: "None" → JSON null, otherwise quoted enum value
+        text = text.Replace("[TATTOO_TRADER_TYPE]",
+            tattoo.TraderType == "None" ? "null" : $"\"{tattoo.TraderType}\"");
 
         return text;
     }
