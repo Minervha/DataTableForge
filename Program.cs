@@ -45,16 +45,6 @@ if (args.Length > 0 && args[0] == "generate")
     return ForgeGenerator.Generate(forgeConfig);
 }
 
-// ── Texture conversion mode ──────────────────────────────────────────────────
-if (args.Length > 0 && args[0] == "convert-texture")
-{
-    var configIdx = Array.IndexOf(args, "--config");
-    var configPath = configIdx >= 0 && configIdx + 1 < args.Length
-        ? args[configIdx + 1]
-        : "texture.config.json";
-    return TextureConverter.Run(configPath);
-}
-
 // ── Extraction mode (original behavior) ──────────────────────────────────────
 // ── CLI args or config file ───────────────────────────────────────────────────
 string pakPath, usmapPath, outputDir, repakExe;
